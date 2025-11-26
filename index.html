@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Hallucination Demonstrator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            max-width: 400px;
+            text-align: center;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        /* Custom styling for prompt buttons */
+        .prompt-button {
+            background-color: #d1fae5; /* Light green */
+            color: #10b981; /* Darker green text */
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .prompt-button:hover {
+            background-color: #a7f3d0;
+            transform: translateY(-2px);
+        }
+        .prompt-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .start-over-button {
+            background-color: #ef4444; /* Red */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            display: none; /* Hidden by default */
+        }
+        .start-over-button:hover {
+            background-color: #dc2626;
+        }
+        .hidden {
+            display: none !important;
+        }
+
+        /* Chat-specific styles */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid #e2e8f0; /* Light gray border */
+            border-radius: 10px;
+            padding: 15px;
+            background-color: #f8fafc; /* Very light blue-gray */
+            max-height: 400px; /* Limit height for scrollability */
+            overflow-y: auto; /* Enable vertical scrolling */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            scroll-behavior: smooth; /* Smooth scroll to new messages */
+        }
+        .chat-message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            position: relative;
+            word-wrap: break-word; /* Ensure long words wrap */
+        }
+        .user-message {
+            background-color: #dbeafe; /* Light blue */
+            color: #1e40af; /* Darker blue text */
+            align-self: flex-end; /* Align to the right */
+            border-bottom-right-radius: 5px; /* Sharper corner on user side */
+        }
+        .llm-message {
+            background-color: #e0f2f7; /* Lighter blue-green */
+            color: #0369a1; /* Darker blue-green text */
+            align-self: flex-start; /* Align to the left */
+            border-bottom-left-radius: 5px; /* Sharper corner on LLM side */
+        }
+
+        /* Sender labels within chat messages */
+        .chat-sender-label {
+            font-size: 0.75em; /* Smaller font for label */
+            font-weight: 700; /* Bold */
+            margin-bottom: 5px; /* Space between label and content */
+            display: block; /* Make it a block element to push content down */
+            opacity: 0.7; /* Slightly faded */
+        }
+        .user-message .chat-sender-label {
+            color: #1e40af; /* Darker blue for user label */
+            text-align: right; /* Align to right for user message */
+        }
+        .llm-message .chat-sender-label {
+            color: #0369a1; /* Darker blue-green for LLM label */
+            text-align: left; /* Align to left for LLM message */
+        }
+
+        /* Loading typing cursor animation */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: flex-end; /* Align to bottom for cursor effect */
+            justify-content: flex-start;
+            height: 1.2em; /* Sufficient height for text line and cursor */
+            position: relative;
+        }
+
+        .typing-indicator::after {
+            content: '';
+            display: inline-block;
+            width: 2px; /* Cursor width */
+            height: 1em; /* Cursor height */
+            background-color: #0369a1; /* Cursor color */
+            animation: blink-cursor 0.7s infinite step-end;
+            margin-left: 2px;
+            vertical-align: bottom; /* Align with text baseline */
+        }
+
+        @keyframes blink-cursor {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Message expansion animation */
+        .message-expanding {
+            animation: expand-bubble 0.3s ease-out forwards;
+            overflow: hidden; /* Hide overflow during expansion */
+            max-height: 0; /* Start from collapsed state */
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+
+        @keyframes expand-bubble {
+            from {
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                opacity: 0;
+            }
+            to {
+                max-height: 200px; /* A large enough value to accommodate content */
+                padding-top: 10px; /* Restore original padding */
+                padding-bottom: 10px;
+                opacity: 1;
+            }
+        }
+
+        /* Language Selector Styles */
+        .language-selector {
+            align-self: flex-end;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .language-select {
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: white;
+            color: #333;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        
+        /* Secret Word Game Styles */
+        .secret-word-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .secret-word-title {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+        .secret-word-display {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5em;
+            letter-spacing: 5px;
+            font-weight: bold;
+        }
+        
+        /* Flag Button Styles */
+        .flag-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #fee2e2;
+            color: #ef4444;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .flag-btn:hover {
+            background-color: #fecaca;
+        }
+        .flag-btn.correct {
+            background-color: #dcfce7;
+            color: #166534;
+            border-color: #bbf7d0;
+            cursor: default;
+        }
+        .flag-btn.incorrect {
+            background-color: #f3f4f6;
+            color: #6b7280;
+            border-color: #e5e7eb;
+            cursor: default;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="container fade-in">
+        <!-- Language Selector -->
+        <div class="language-selector">
+            <i class="fas fa-globe text-gray-500"></i>
+            <select id="languageSelect" class="language-select">
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="pt">Português</option>
+                <option value="es">Español</option>
+            </select>
+        </div>
+
+        <!-- Secret Word Game UI -->
+        <div class="secret-word-container">
+            <div class="secret-word-title"><i class="fas fa-lock mr-2"></i>Secret Word Challenge</div>
+            <div id="secretWordDisplay" class="secret-word-display">_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _</div>
+            <div class="text-xs mt-2 opacity-80">Flag the hallucinations to reveal the word!</div>
+        </div>
+
+        <p id="appDescription" class="text-gray-700 text-lg text-center leading-relaxed mb-6">
+            Choose a prompt below to see how Large Language Models (LLMs) might sometimes generate confident but incorrect (hallucinated) information, or require more context. Your task is to **figure out if the response is a hallucination!**
+        </p>
+
+        <div id="chatContainer" class="chat-container mb-8">
+            <!-- Chat messages will be appended here -->
+        </div>
+
+        <h2 id="promptSelectionTitle" class="text-2xl font-bold text-gray-800 mb-3 text-center">Select a Prompt:</h2>
+        <div id="initialPromptGrid" class="prompt-grid mb-8">
+            <!-- Buttons generated dynamically -->
+        </div>
+
+        <div id="followUpPromptGrid" class="prompt-grid mb-8 hidden">
+            <!-- Follow-up buttons will be dynamically inserted here -->
+        </div>
+
+        <div id="loadingSpinner" class="loading-spinner"></div>
+
+        <button id="startOverButton" class="start-over-button self-center">Start Over</button>
+    </div>
+
+    <!-- Message Box for alerts -->
+    <div id="messageBox" class="message-box">
+        <p id="messageText" class="text-gray-800 text-lg"></p>
+        <button id="closeMessage" class="bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:bg-blue-600">Got It!</button>
+    </div>
+    <div id="overlay" class="overlay"></div>
+
+    <script type="module">
+        // Element references
+        const initialPromptGrid = document.getElementById('initialPromptGrid');
+        const followUpPromptGrid = document.getElementById('followUpPromptGrid');
+        const promptSelectionTitle = document.getElementById('promptSelectionTitle');
+        const chatContainer = document.getElementById('chatContainer');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const closeMessageButton = document.getElementById('closeMessage');
+        const overlay = document.getElementById('overlay');
+        const startOverButton = document.getElementById('startOverButton');
+        const languageSelect = document.getElementById('languageSelect');
+        const appDescription = document.getElementById('appDescription');
+        const closeMessageBtn = document.getElementById('closeMessage');
+        const secretWordDisplay = document.getElementById('secretWordDisplay');
+
+        // Store the current loading message element globally so we can update it
+        let currentLoadingMessageElement = null;
+        let currentLanguage = 'en';
+        let currentScenarioId = null;
+
+        // Game State
+        const SECRET_WORD = "Weihnachtsgeschenk";
+        const TOTAL_HALLUCINATIONS = 2; // Math, World Cup
+        let foundHallucinationIds = new Set();
+
+        // UI Translations
+        const uiText = {
+            'en': {
+                description: "Choose a prompt below to see how Large Language Models (LLMs) might sometimes generate confident but incorrect (hallucinated) information, or require more context. Your task is to **figure out if the response is a hallucination!**",
+                selectPrompt: "Select a Prompt:",
+                followUpTitle: "Now, ask a follow-up question:",
+                startOver: "Start Over",
+                gotIt: "Got It!",
+                you: "You:",
+                llm: "LLM:",
+                flag: "🚩 Flag Hallucination",
+                flagCorrect: "✅ Correct! Hallucination Spotted",
+                flagIncorrect: "❌ Not a Hallucination",
+                secretWordTitle: "Secret Word Challenge",
+                secretWordDesc: "Flag the hallucinations to reveal the word!",
+                congrats: "🎉 Congratulations! You found the secret word!"
+            },
+            'de': {
+                description: "Wählen Sie unten eine Eingabeaufforderung, um zu sehen, wie Large Language Models (LLMs) manchmal selbstbewusste, aber falsche (halluzinierte) Informationen generieren. Ihre Aufgabe ist es, **herauszufinden, ob die Antwort eine Halluzination ist!**",
+                selectPrompt: "Wählen Sie eine Frage:",
+                followUpTitle: "Stellen Sie nun eine Folgefrage:",
+                startOver: "Neu starten",
+                gotIt: "Verstanden!",
+                you: "Du:",
+                llm: "KI:",
+                flag: "🚩 Als Halluzination markieren",
+                flagCorrect: "✅ Richtig! Halluzination entdeckt",
+                flagIncorrect: "❌ Keine Halluzination",
+                secretWordTitle: "Geheimwort-Herausforderung",
+                secretWordDesc: "Markiere die Halluzinationen, um das Wort aufzudecken!",
+                congrats: "🎉 Glückwunsch! Du hast das Geheimwort gefunden!"
+            },
+            'pt': {
+                description: "Escolha um prompt abaixo para ver como Grandes Modelos de Linguagem (LLMs) podem, às vezes, gerar informações confiantes, mas incorretas (alucinações). Sua tarefa é **descobrir se a resposta é uma alucinação!**",
+                selectPrompt: "Selecione uma Pergunta:",
+                followUpTitle: "Agora, faça uma pergunta de acompanhamento:",
+                startOver: "Recomeçar",
+                gotIt: "Entendi!",
+                you: "Você:",
+                llm: "IA:",
+                flag: "🚩 Sinalizar Alucinação",
+                flagCorrect: "✅ Correto! Alucinação Detectada",
+                flagIncorrect: "❌ Não é uma Alucinação",
+                secretWordTitle: "Desafio da Palavra Secreta",
+                secretWordDesc: "Sinalize as alucinações para revelar a palavra!",
+                congrats: "🎉 Parabéns! Você encontrou a palavra secreta!"
+            },
+            'es': {
+                description: "Elija una pregunta a continuación para ver cómo los Grandes Modelos de Lenguaje (LLM) a veces generan información segura pero incorrecta (alucinada). ¡Su tarea es **averiguar si la respuesta es una alucinación!**",
+                selectPrompt: "Seleccione una Pregunta:",
+                followUpTitle: "Ahora, haga una pregunta de seguimiento:",
+                startOver: "Empezar de nuevo",
+                gotIt: "¡Entendido!",
+                you: "Tú:",
+                llm: "IA:",
+                flag: "🚩 Marcar Alucinación",
+                flagCorrect: "✅ ¡Correcto! Alucinación Detectada",
+                flagIncorrect: "❌ No es una Alucinación",
+                secretWordTitle: "Desafío de la Palabra Secreta",
+                secretWordDesc: "¡Marca las alucinaciones para revelar la palabra!",
+                congrats: "🎉 ¡Felicidades! ¡Encontraste la palabra secreta!"
+            }
+        };
+
+        // Scenarios by language - Added isHallucination flag
+        const allScenarios = {
+            'en': {
+                'nintendo': {
+                    mainPrompt: "What was the most recent console released by Nintendo?",
+                    initialResponse: "The Nintendo Switch 2 was Nintendo's most recently released console, coming out on 5th June 2025",
+                    isHallucination: false,
+                    id: "nintendo_main",
+                    followUpQuestions: [
+                        { prompt: "How do I beat the last level of Super Mario Odyssey?", response: "Ah that level is tough! It would help to find some YouTube videos of other people finishing the level, so you know what to do" },
+                        { prompt: "Is PlayStation better than Nintendo?", response: "That's a classic debate! PlayStation usually shines with powerful hardware and a huge lineup of exclusive games. Nintendo, however, focuses on creativity and iconic franchises like Mario and Zelda." },
+                        { prompt: "Did it sell as well as the first Nintendo Switch?", response: "It sold even better! In the first month of sales, the Switch 2 nearly doubled the number of sales of the Switch in its first month" }
+                    ]
+                },
+                'maths': {
+                    mainPrompt: "I need some help with a maths problem",
+                    initialResponse: "Sure, just send it over and I'll give it a go!",
+                    id: "maths_main",
+                    followUpQuestions: [
+                        { prompt: "How do I find the remainder when 105 is divided by 12?", response: "We check how many times 12 fits into 105, 12 x 8 = 96, but 12 x 9 = 108, which is too big. The remainder is then 105 - 96 = 9" },
+                        { prompt: "What is 68 + 54 + 1?", response: "We can sum this bit by bit to get the final answer! 68 + 54 + 1 = equivalent to 123 + 1, which is equal to 124", isHallucination: true, id: "maths_q2" },
+                        { prompt: "Solve for x : 2x + 5 = 17", response: "We can rearrange the equation to get that 2x = 12, and so x = 6" }
+                    ]
+                },
+                'worldcup': {
+                    mainPrompt: "Where was the first World Cup held?",
+                    initialResponse: "The first World Cup was held in Uruguay in 1930!",
+                    id: "worldcup_main",
+                    followUpQuestions: [
+                        { prompt: "Which team won?", response: "Uruguay, the hosts, won after beating Argentina 4-2 in the final." },
+                        { prompt: "Who is the best football player of all time?", response: "There is no definitive answer, but many people consider Pelé, Lionel Messi or Cristiano Ronaldo to be the greatest football players of all time." },
+                        { prompt: "Which country has won the most World Cups?", response: "Germany has won the most World Cups, taking home 6 trophies!", isHallucination: true, id: "worldcup_q3" }
+                    ]
+                },
+                'summarise_ai': {
+                    mainPrompt: "Summarise this article about AI for me",
+                    initialResponse: "Artificial intelligence (AI) allows machines to perform human-like tasks such as learning, reasoning, and problem-solving by processing data and adapting their behavior autonomously. With recent advances in computing power and data, AI has become a key driver of digital transformation and is already impacting many aspects of daily life.",
+                    id: "ai_main",
+                    followUpQuestions: [
+                        { prompt: "How long has AI been around?", response: "AI has been around for more than 50 years, and is constantly developing" },
+                        { prompt: "What are some examples of tasks that AI can do?", response: "AI can do tasks like reasoning, learning, planning, perceiving its environment, solving problems and acting to achieve specific goals" },
+                        { prompt: "How does the AI get data?", response: "AI gets data either from information that's already prepared and fed into it or by gathering data itself through sensors like cameras, microphones, or other devices." }
+                    ]
+                }
+            },
+            'de': {
+                'nintendo': {
+                    mainPrompt: "Was war die neuste Konsole von Nintendo?",
+                    initialResponse: "Die Nintendo Switch 2 war Nintendos zuletzt veröffentlichte Konsole, die am 5. Juni 2025 herauskam.",
+                    isHallucination: false,
+                    id: "nintendo_main",
+                    followUpQuestions: [
+                        { prompt: "Wie schaffe ich das letzte Level von Super Mario Odyssey?", response: "Oh, das Level ist hart! Es würde helfen, YouTube-Videos anzusehen, wie andere das Level beenden, damit du weißt, was zu tun ist." },
+                        { prompt: "Ist PlayStation besser als Nintendo?", response: "Das ist eine klassische Debatte! PlayStation glänzt meist mit starker Hardware und vielen Exklusivtiteln. Nintendo konzentriert sich jedoch auf Kreativität und ikonische Reihen wie Mario und Zelda." },
+                        { prompt: "Hat sie sich so gut verkauft wie die erste Nintendo Switch?", response: "Sie hat sich noch besser verkauft! Im ersten Verkaufsmonat hat die Switch 2 die Verkaufszahlen der ersten Switch fast verdoppelt." }
+                    ]
+                },
+                'maths': {
+                    mainPrompt: "Ich brauche Hilfe bei einem Matheproblem",
+                    initialResponse: "Klar, schick es einfach rüber und ich versuche es!",
+                    id: "maths_main",
+                    followUpQuestions: [
+                        { prompt: "Wie finde ich den Rest, wenn 105 durch 12 geteilt wird?", response: "Wir prüfen, wie oft die 12 in 105 passt. 12 x 8 = 96, aber 12 x 9 = 108, was zu groß ist. Der Rest ist dann 105 - 96 = 9." },
+                        { prompt: "Was ist 68 + 54 + 1?", response: "Wir können das Stück für Stück addieren! 68 + 54 + 1 ist äquivalent zu 123 + 1, was gleich 124 ist.", isHallucination: true, id: "maths_q2" },
+                        { prompt: "Löse nach x auf: 2x + 5 = 17", response: "Wir können die Gleichung umstellen, sodass 2x = 12, also ist x = 6." }
+                    ]
+                },
+                'worldcup': {
+                    mainPrompt: "Wo fand die erste Weltmeisterschaft statt?",
+                    initialResponse: "Die erste Weltmeisterschaft fand 1930 in Uruguay statt!",
+                    id: "worldcup_main",
+                    followUpQuestions: [
+                        { prompt: "Welches Team hat gewonnen?", response: "Uruguay, die Gastgeber, gewannen, nachdem sie Argentinien im Finale mit 4:2 besiegt hatten." },
+                        { prompt: "Wer ist der beste Fußballspieler aller Zeiten?", response: "Es gibt keine definitive Antwort, aber viele betrachten Pelé, Lionel Messi oder Cristiano Ronaldo als die größten Fußballspieler aller Zeiten." },
+                        { prompt: "Welches Land hat die meisten Weltmeisterschaften gewonnen?", response: "Deutschland hat die meisten Weltmeisterschaften gewonnen und 6 Trophäen mit nach Hause genommen!", isHallucination: true, id: "worldcup_q3" }
+                    ]
+                },
+                'summarise_ai': {
+                    mainPrompt: "Fasse diesen Artikel über KI für mich zusammen",
+                    initialResponse: "Künstliche Intelligenz (KI) ermöglicht es Maschinen, menschenähnliche Aufgaben wie Lernen, Schlussfolgern und Problemlösen auszuführen, indem sie Daten verarbeiten und ihr Verhalten autonom anpassen. Mit den jüngsten Fortschritten bei Rechenleistung und Daten ist KI zu einem Schlüsselfaktor der digitalen Transformation geworden.",
+                    id: "ai_main",
+                    followUpQuestions: [
+                        { prompt: "Wie lange gibt es KI schon?", response: "KI gibt es seit mehr als 50 Jahren und sie entwickelt sich ständig weiter." },
+                        { prompt: "Was sind Beispiele für Aufgaben, die KI erledigen kann?", response: "KI kann Aufgaben wie Schlussfolgern, Lernen, Planen, Wahrnehmen der Umgebung und Problemlösen übernehmen." },
+                        { prompt: "Woher bekommt die KI Daten?", response: "KI erhält Daten entweder aus vorbereiteten Informationen oder sammelt sie selbst durch Sensoren wie Kameras oder Mikrofone." }
+                    ]
+                }
+            },
+            'pt': {
+                'nintendo': {
+                    mainPrompt: "Qual foi o console mais recente lançado pela Nintendo?",
+                    initialResponse: "O Nintendo Switch 2 foi o console mais recente da Nintendo, lançado em 5 de junho de 2025.",
+                    isHallucination: false,
+                    id: "nintendo_main",
+                    followUpQuestions: [
+                        { prompt: "Como passo do último nível de Super Mario Odyssey?", response: "Ah, esse nível é difícil! Ajudaria procurar alguns vídeos no YouTube de outras pessoas terminando o nível, para você saber o que fazer." },
+                        { prompt: "O PlayStation é melhor que a Nintendo?", response: "Esse é um debate clássico! O PlayStation geralmente brilha com hardware poderoso e jogos exclusivos. A Nintendo, no entanto, foca na criatividade e franquias icônicas como Mario e Zelda." },
+                        { prompt: "Vendeu tão bem quanto o primeiro Nintendo Switch?", response: "Vendeu ainda melhor! No primeiro mês de vendas, o Switch 2 quase dobrou o número de vendas do Switch em seu primeiro mês." }
+                    ]
+                },
+                'maths': {
+                    mainPrompt: "Preciso de ajuda com um problema de matemática",
+                    initialResponse: "Claro, é só mandar que eu tento resolver!",
+                    id: "maths_main",
+                    followUpQuestions: [
+                        { prompt: "Como encontro o resto de 105 dividido por 12?", response: "Vemos quantas vezes o 12 cabe em 105. 12 x 8 = 96, mas 12 x 9 = 108, que é muito grande. O resto é então 105 - 96 = 9." },
+                        { prompt: "Quanto é 68 + 54 + 1?", response: "Podemos somar isso pouco a pouco! 68 + 54 + 1 é equivalente a 123 + 1, que é igual a 124.", isHallucination: true, id: "maths_q2" },
+                        { prompt: "Resolva para x: 2x + 5 = 17", response: "Podemos reorganizar a equação para obter que 2x = 12, e então x = 6." }
+                    ]
+                },
+                'worldcup': {
+                    mainPrompt: "Onde foi realizada a primeira Copa do Mundo?",
+                    initialResponse: "A primeira Copa do Mundo foi realizada no Uruguai em 1930!",
+                    id: "worldcup_main",
+                    followUpQuestions: [
+                        { prompt: "Qual time ganhou?", response: "O Uruguai, o anfitrião, venceu após derrotar a Argentina por 4 a 2 na final." },
+                        { prompt: "Quem é o melhor jogador de futebol de todos os tempos?", response: "Não há uma resposta definitiva, mas muitos consideram Pelé, Lionel Messi ou Cristiano Ronaldo como os maiores jogadores de futebol de todos os tempos." },
+                        { prompt: "Qual país ganhou mais Copas do Mundo?", response: "A Alemanha ganhou o maior número de Copas do Mundo, levando para casa 6 troféus!", isHallucination: true, id: "worldcup_q3" }
+                    ]
+                },
+                'summarise_ai': {
+                    mainPrompt: "Resuma este artigo sobre IA para mim",
+                    initialResponse: "A inteligência artificial (IA) permite que máquinas realizem tarefas humanas, como aprender, raciocinar e resolver problemas, processando dados e adaptando seu comportamento autonomamente. Com avanços recentes, a IA tornou-se um motor chave da transformação digital.",
+                    id: "ai_main",
+                    followUpQuestions: [
+                        { prompt: "Há quanto tempo a IA existe?", response: "A IA existe há mais de 50 anos e está em constante desenvolvimento." },
+                        { prompt: "Quais são alguns exemplos de tarefas que a IA pode fazer?", response: "A IA pode realizar tarefas como raciocinar, aprender, planejar, perceber seu ambiente e resolver problemas." },
+                        { prompt: "Como a IA obtém dados?", response: "A IA obtém dados de informações já preparadas ou coletando dados por meio de sensores como câmeras e microfones." }
+                    ]
+                }
+            },
+            'es': {
+                'nintendo': {
+                    mainPrompt: "¿Cuál fue la consola más reciente lanzada por Nintendo?",
+                    initialResponse: "La Nintendo Switch 2 fue la consola más reciente de Nintendo, lanzada el 5 de junio de 2025.",
+                    isHallucination: false,
+                    id: "nintendo_main",
+                    followUpQuestions: [
+                        { prompt: "¿Cómo paso el último nivel de Super Mario Odyssey?", response: "¡Ah, ese nivel es difícil! Ayudaría buscar algunos videos en YouTube de otras personas terminando el nivel, para que sepas qué hacer." },
+                        { prompt: "¿Es PlayStation mejor que Nintendo?", response: "¡Ese es un debate clásico! PlayStation suele destacar por su potente hardware y juegos exclusivos. Nintendo, sin embargo, se centra en la creatividad y franquicias icónicas como Mario y Zelda." },
+                        { prompt: "¿Se vendió tan bien como la primera Nintendo Switch?", response: "¡Se vendió aún mejor! En el primer mes de ventas, la Switch 2 casi duplicó el número de ventas de la Switch en su primer mes." }
+                    ]
+                },
+                'maths': {
+                    mainPrompt: "Necesito ayuda con un problema de matemáticas",
+                    initialResponse: "Claro, ¡envíalo y lo intentaré!",
+                    id: "maths_main",
+                    followUpQuestions: [
+                        { prompt: "¿Cómo encuentro el resto cuando 105 se divide por 12?", response: "Vemos cuántas veces cabe 12 en 105. 12 x 8 = 96, pero 12 x 9 = 108, que es demasiado grande. El resto es entonces 105 - 96 = 9." },
+                        { prompt: "¿Cuánto es 68 + 54 + 1?", response: "¡Podemos sumar esto poco a poco! 68 + 54 + 1 es equivalente a 123 + 1, que es igual a 124.", isHallucination: true, id: "maths_q2" },
+                        { prompt: "Resuelve para x: 2x + 5 = 17", response: "Podemos reorganizar la ecuación para obtener que 2x = 12, y entonces x = 6." }
+                    ]
+                },
+                'worldcup': {
+                    mainPrompt: "¿Dónde se celebró la primera Copa del Mundo?",
+                    initialResponse: "¡La primera Copa del Mundo se celebró en Uruguay en 1930!",
+                    id: "worldcup_main",
+                    followUpQuestions: [
+                        { prompt: "¿Qué equipo ganó?", response: "Uruguay, el anfitrión, ganó tras vencer a Argentina 4-2 en la final." },
+                        { prompt: "¿Quién es el mejor jugador de fútbol de todos los tiempos?", response: "No hay una respuesta definitiva, pero muchos consideran a Pelé, Lionel Messi o Cristiano Ronaldo como los mejores jugadores de fútbol de todos los tiempos." },
+                        { prompt: "¿Qué país ha ganado más Copas del Mundo?", response: "¡Alemania ha ganado la mayor cantidad de Copas del Mundo, llevándose a casa 6 trofeos!", isHallucination: true, id: "worldcup_q3" }
+                    ]
+                },
+                'summarise_ai': {
+                    mainPrompt: "Resúmeme este artículo sobre IA",
+                    initialResponse: "La inteligencia artificial (IA) permite a las máquinas realizar tareas humanas como aprender, razonar y resolver problemas procesando datos y adaptando su comportamiento de forma autónoma. Con los avances recientes, la IA se ha convertido en un motor clave de la transformación digital.",
+                    id: "ai_main",
+                    followUpQuestions: [
+                        { prompt: "¿Cuánto tiempo lleva existiendo la IA?", response: "La IA ha existido por más de 50 años y está en constante desarrollo." },
+                        { prompt: "¿Cuáles son algunos ejemplos de tareas que la IA puede hacer?", response: "La IA puede realizar tareas como razonar, aprender, planificar, percibir su entorno y resolver problemas." },
+                        { prompt: "¿Cómo obtiene datos la IA?", response: "La IA obtiene datos de información ya preparada o recopilando datos por sí misma a través de sensores como cámaras y micrófonos." }
+                    ]
+                }
+            }
+        };
+
+        // Function to show a custom message box
+        function showMessageBox(message) {
+            messageText.textContent = message;
+            messageBox.style.display = 'flex';
+            overlay.style.display = 'block';
+        }
+
+        // Function to hide the custom message box
+        function hideMessageBox() {
+            messageBox.style.display = 'none';
+            overlay.style.display = 'none';
+        }
+
+        closeMessageButton.addEventListener('click', hideMessageBox);
+        overlay.addEventListener('click', hideMessageBox); // Close if clicking outside
+
+        // Game Logic Functions
+        function renderSecretWord() {
+            const foundCount = foundHallucinationIds.size;
+            // Calculate how many characters to show. 
+            // 0 found = 0 chars
+            // 1 found = 1/3 of chars
+            // 2 found = 2/3 of chars
+            // 3 found = all chars
+            const charsToShow = Math.floor((foundCount / TOTAL_HALLUCINATIONS) * SECRET_WORD.length);
+            
+            let displayString = "";
+            for (let i = 0; i < SECRET_WORD.length; i++) {
+                if (i < charsToShow) {
+                    displayString += SECRET_WORD[i] + " ";
+                } else {
+                    displayString += "_ ";
+                }
+            }
+            secretWordDisplay.textContent = displayString.trim();
+
+            if (foundCount === TOTAL_HALLUCINATIONS) {
+                setTimeout(() => showMessageBox(uiText[currentLanguage].congrats), 500);
+            }
+        }
+
+        /**
+         * Adds a message to the chat container.
+         * @param {string} text - The message text.
+         * @param {string} sender - 'user' or 'llm'.
+         * @param {boolean} isTemporaryLoading - True if this is the initial loading message.
+         * @param {object} metadata - Extra info like isHallucination and id
+         * @returns {HTMLElement} The created message element.
+         */
+        function displayMessage(text, sender, isTemporaryLoading = false, metadata = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${sender}-message`;
+
+            const senderLabel = document.createElement('span');
+            senderLabel.className = 'chat-sender-label';
+            senderLabel.textContent = sender === 'user' ? uiText[currentLanguage].you : uiText[currentLanguage].llm;
+            messageDiv.appendChild(senderLabel);
+
+            const contentSpan = document.createElement('span'); // Span for the actual text content
+
+            if (isTemporaryLoading) {
+                contentSpan.innerHTML = `<span class="typing-indicator"></span>`; // Only typing indicator
+                currentLoadingMessageElement = contentSpan; // Store reference to this content span
+            } else {
+                contentSpan.innerHTML = text;
+            }
+            messageDiv.appendChild(contentSpan);
+
+            // Add Flag Button for LLM messages if it's not a loading message
+            if (sender === 'llm' && !isTemporaryLoading) {
+                const flagBtn = document.createElement('button');
+                flagBtn.className = 'flag-btn';
+                
+                // Check if already found
+                if (metadata && metadata.id && foundHallucinationIds.has(metadata.id)) {
+                    flagBtn.innerHTML = uiText[currentLanguage].flagCorrect;
+                    flagBtn.classList.add('correct');
+                    flagBtn.disabled = true;
+                } else {
+                    flagBtn.innerHTML = uiText[currentLanguage].flag;
+                    
+                    flagBtn.onclick = function() {
+                        if (metadata && metadata.isHallucination) {
+                            // Correct!
+                            if (!foundHallucinationIds.has(metadata.id)) {
+                                foundHallucinationIds.add(metadata.id);
+                                flagBtn.innerHTML = uiText[currentLanguage].flagCorrect;
+                                flagBtn.classList.add('correct');
+                                flagBtn.disabled = true;
+                                renderSecretWord();
+                            }
+                        } else {
+                            // Incorrect
+                            const originalText = flagBtn.innerHTML;
+                            flagBtn.innerHTML = uiText[currentLanguage].flagIncorrect;
+                            flagBtn.classList.add('incorrect');
+                            setTimeout(() => {
+                                flagBtn.innerHTML = originalText;
+                                flagBtn.classList.remove('incorrect');
+                            }, 2000);
+                        }
+                    };
+                }
+                
+                messageDiv.appendChild(document.createElement('br'));
+                messageDiv.appendChild(flagBtn);
+            }
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return messageDiv;
+        }
+
+        /**
+         * Types out the given text word by word into the target element.
+         */
+        function typeWriter(element, text, onComplete, delay = 50) {
+            const words = text.split(/\s+/); // Split by one or more spaces
+            let i = 0;
+            element.innerHTML = ''; // Clear existing content for typing effect
+
+            function addWord() {
+                if (i < words.length) {
+                    element.innerHTML += words[i] + (i < words.length - 1 ? ' ' : '');
+                    chatContainer.scrollTop = chatContainer.scrollHeight; // Scroll after each word
+                    i++;
+                    setTimeout(addWord, delay);
+                } else {
+                    onComplete();
+                }
+            }
+            addWord();
+        }
+
+        function showLoading() {
+            document.querySelectorAll('.prompt-button').forEach(button => button.disabled = true);
+            startOverButton.disabled = true;
+            loadingSpinner.style.display = 'block';
+            displayMessage('', 'llm', true);
+        }
+
+        function hideLoading(llmResponseText, metadata = null) {
+            loadingSpinner.style.display = 'none';
+
+            if (currentLoadingMessageElement) {
+                const messageBubble = currentLoadingMessageElement.closest('.chat-message');
+                messageBubble.classList.add('message-expanding');
+
+                setTimeout(() => {
+                    messageBubble.classList.remove('message-expanding');
+                    messageBubble.style.maxHeight = '';
+                    messageBubble.style.paddingTop = '';
+                    messageBubble.style.paddingBottom = '';
+                    messageBubble.style.opacity = '';
+
+                    typeWriter(currentLoadingMessageElement, llmResponseText, () => {
+                        currentLoadingMessageElement = null;
+                        
+                        // Append flag button after typing is complete
+                        if (metadata) {
+                            const flagBtn = document.createElement('button');
+                            flagBtn.className = 'flag-btn';
+                             if (metadata.id && foundHallucinationIds.has(metadata.id)) {
+                                flagBtn.innerHTML = uiText[currentLanguage].flagCorrect;
+                                flagBtn.classList.add('correct');
+                                flagBtn.disabled = true;
+                            } else {
+                                flagBtn.innerHTML = uiText[currentLanguage].flag;
+                                flagBtn.onclick = function() {
+                                    if (metadata.isHallucination) {
+                                        if (!foundHallucinationIds.has(metadata.id)) {
+                                            foundHallucinationIds.add(metadata.id);
+                                            flagBtn.innerHTML = uiText[currentLanguage].flagCorrect;
+                                            flagBtn.classList.add('correct');
+                                            flagBtn.disabled = true;
+                                            renderSecretWord();
+                                        }
+                                    } else {
+                                        const originalText = flagBtn.innerHTML;
+                                        flagBtn.innerHTML = uiText[currentLanguage].flagIncorrect;
+                                        flagBtn.classList.add('incorrect');
+                                        setTimeout(() => {
+                                            flagBtn.innerHTML = originalText;
+                                            flagBtn.classList.remove('incorrect');
+                                        }, 2000);
+                                    }
+                                };
+                            }
+                            messageBubble.appendChild(document.createElement('br'));
+                            messageBubble.appendChild(flagBtn);
+                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
+
+                        if (!initialPromptGrid.classList.contains('hidden')) {
+                            initialPromptGrid.querySelectorAll('.prompt-button').forEach(button => button.disabled = false);
+                        }
+                        if (!followUpPromptGrid.classList.contains('hidden')) {
+                            followUpPromptGrid.querySelectorAll('.prompt-button').forEach(button => button.disabled = false);
+                        }
+                        startOverButton.disabled = false;
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    });
+                }, 300);
+            } else {
+                displayMessage(llmResponseText, 'llm', false, metadata);
+                if (!initialPromptGrid.classList.contains('hidden')) {
+                    initialPromptGrid.querySelectorAll('.prompt-button').forEach(button => button.disabled = false);
+                }
+                if (!followUpPromptGrid.classList.contains('hidden')) {
+                    followUpPromptGrid.querySelectorAll('.prompt-button').forEach(button => button.disabled = false);
+                }
+                startOverButton.disabled = false;
+            }
+        }
+
+        function renderInitialButtons() {
+            initialPromptGrid.innerHTML = '';
+            const prompts = allScenarios[currentLanguage];
+            for (const [key, scenario] of Object.entries(prompts)) {
+                const button = document.createElement('button');
+                button.className = 'prompt-button';
+                button.dataset.promptId = key;
+                button.textContent = scenario.mainPrompt;
+                initialPromptGrid.appendChild(button);
+            }
+        }
+
+        function updateUIText() {
+            const text = uiText[currentLanguage];
+            appDescription.textContent = text.description;
+            promptSelectionTitle.textContent = text.selectPrompt;
+            startOverButton.textContent = text.startOver;
+            closeMessageBtn.textContent = text.gotIt;
+            document.querySelector('.secret-word-title').innerHTML = `<i class="fas fa-lock mr-2"></i>${text.secretWordTitle}`;
+            document.querySelector('.secret-word-container .text-xs').textContent = text.secretWordDesc;
+
+            if (!followUpPromptGrid.classList.contains('hidden')) {
+                promptSelectionTitle.textContent = text.followUpTitle;
+            }
+        }
+
+        function resetApp() {
+            initialPromptGrid.classList.remove('hidden');
+            followUpPromptGrid.classList.add('hidden');
+            followUpPromptGrid.innerHTML = ''; // Clear follow-up buttons
+            chatContainer.innerHTML = ''; // Clear chat history
+            startOverButton.style.display = 'none';
+            currentScenarioId = null; // Reset current scenario
+            currentLoadingMessageElement = null; // Reset loading element reference
+            loadingSpinner.style.display = 'none'; // Hide spinner
+            
+            updateUIText();
+            renderInitialButtons();
+            renderSecretWord(); // Render the word state (even if empty)
+        }
+        
+        // Language Selector Event
+        languageSelect.addEventListener('change', (e) => {
+            currentLanguage = e.target.value;
+            // Update the UI text immediately
+            updateUIText();
+            // Re-render chat messages with new language labels/buttons?
+            // For simplicity, we just reset the app when language changes
+            resetApp();
+        });
+
+        // Event listeners for initial prompt buttons
+        initialPromptGrid.addEventListener('click', (event) => {
+            const button = event.target.closest('.prompt-button');
+            if (!button) return;
+
+            const userPrompt = button.textContent;
+            displayMessage(userPrompt, 'user');
+
+            currentScenarioId = button.dataset.promptId;
+            const scenario = allScenarios[currentLanguage][currentScenarioId];
+
+            if (scenario) {
+                showLoading();
+                setTimeout(() => {
+                    hideLoading(scenario.initialResponse, scenario); // Pass scenario metadata
+                    initialPromptGrid.classList.add('hidden');
+                    followUpPromptGrid.classList.remove('hidden');
+                    promptSelectionTitle.textContent = uiText[currentLanguage].followUpTitle;
+
+                    followUpPromptGrid.innerHTML = '';
+                    scenario.followUpQuestions.forEach((q, index) => {
+                        const newButton = document.createElement('button');
+                        newButton.className = 'prompt-button';
+                        newButton.dataset.followUpIndex = index;
+                        newButton.textContent = q.prompt;
+                        followUpPromptGrid.appendChild(newButton);
+                    });
+
+                    startOverButton.style.display = 'block';
+                }, 1000);
+            } else {
+                showMessageBox("Error: Scenario not found.");
+                hideLoading("Error");
+            }
+        });
+
+        // Event listeners for follow-up prompt buttons
+        followUpPromptGrid.addEventListener('click', (event) => {
+            const button = event.target.closest('.prompt-button');
+            if (!button) return;
+
+            const userPrompt = button.textContent;
+            displayMessage(userPrompt, 'user');
+
+            const followUpIndex = parseInt(button.dataset.followUpIndex, 10);
+            const scenario = allScenarios[currentLanguage][currentScenarioId];
+            
+            if (scenario && scenario.followUpQuestions[followUpIndex]) {
+                const followUp = scenario.followUpQuestions[followUpIndex];
+
+                showLoading();
+                setTimeout(() => {
+                    hideLoading(followUp.response, followUp); // Pass followUp metadata
+                }, 1000);
+            } else {
+                showMessageBox("Error: Follow-up scenario not found.");
+                hideLoading("Error");
+            }
+        });
+
+        // Start Over button event listener
+        startOverButton.addEventListener('click', resetApp);
+
+        // Initialize app state
+        resetApp();
+    </script>
+</body>
+</html>

@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLM Hallucination Demonstrator</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
@@ -39,7 +37,7 @@
             width: 30px;
             height: 30px;
             animation: spin 1s linear infinite;
-            display: none; /* Hidden by default */
+            display: none;
             margin: 0 auto;
         }
         @keyframes spin {
@@ -80,10 +78,9 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
-        /* Custom styling for prompt buttons */
         .prompt-button {
-            background-color: #d1fae5; /* Light green */
-            color: #10b981; /* Darker green text */
+            background-color: #d1fae5;
+            color: #10b981;
             padding: 12px 20px;
             border-radius: 10px;
             font-weight: 600;
@@ -102,7 +99,7 @@
             gap: 15px;
         }
         .start-over-button {
-            background-color: #ef4444; /* Red */
+            background-color: #ef4444;
             color: white;
             padding: 10px 20px;
             border-radius: 10px;
@@ -112,7 +109,7 @@
             transition: background-color 0.3s ease;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             margin-top: 20px;
-            display: none; /* Hidden by default */
+            display: none;
         }
         .start-over-button:hover {
             background-color: #dc2626;
@@ -120,92 +117,81 @@
         .hidden {
             display: none !important;
         }
-
-        /* Chat-specific styles */
         .chat-container {
             display: flex;
             flex-direction: column;
             gap: 10px;
-            border: 1px solid #e2e8f0; /* Light gray border */
+            border: 1px solid #e2e8f0;
             border-radius: 10px;
             padding: 15px;
-            background-color: #f8fafc; /* Very light blue-gray */
-            max-height: 400px; /* Limit height for scrollability */
-            overflow-y: auto; /* Enable vertical scrolling */
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-            scroll-behavior: smooth; /* Smooth scroll to new messages */
+            background-color: #f8fafc;
+            max-height: 400px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
         }
         .chat-message {
             max-width: 80%;
             padding: 10px 15px;
             border-radius: 15px;
             position: relative;
-            word-wrap: break-word; /* Ensure long words wrap */
+            word-wrap: break-word;
         }
         .user-message {
-            background-color: #dbeafe; /* Light blue */
-            color: #1e40af; /* Darker blue text */
-            align-self: flex-end; /* Align to the right */
-            border-bottom-right-radius: 5px; /* Sharper corner on user side */
+            background-color: #dbeafe;
+            color: #1e40af;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
         }
         .llm-message {
-            background-color: #e0f2f7; /* Lighter blue-green */
-            color: #0369a1; /* Darker blue-green text */
-            align-self: flex-start; /* Align to the left */
-            border-bottom-left-radius: 5px; /* Sharper corner on LLM side */
+            background-color: #e0f2f7;
+            color: #0369a1;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
         }
-
-        /* Sender labels within chat messages */
         .chat-sender-label {
-            font-size: 0.75em; /* Smaller font for label */
-            font-weight: 700; /* Bold */
-            margin-bottom: 5px; /* Space between label and content */
-            display: block; /* Make it a block element to push content down */
-            opacity: 0.7; /* Slightly faded */
+            font-size: 0.75em;
+            font-weight: 700;
+            margin-bottom: 5px;
+            display: block;
+            opacity: 0.7;
         }
         .user-message .chat-sender-label {
-            color: #1e40af; /* Darker blue for user label */
-            text-align: right; /* Align to right for user message */
+            color: #1e40af;
+            text-align: right;
         }
         .llm-message .chat-sender-label {
-            color: #0369a1; /* Darker blue-green for LLM label */
-            text-align: left; /* Align to left for LLM message */
+            color: #0369a1;
+            text-align: left;
         }
-
-        /* Loading typing cursor animation */
         .typing-indicator {
             display: inline-flex;
-            align-items: flex-end; /* Align to bottom for cursor effect */
+            align-items: flex-end;
             justify-content: flex-start;
-            height: 1.2em; /* Sufficient height for text line and cursor */
+            height: 1.2em;
             position: relative;
         }
-
         .typing-indicator::after {
             content: '';
             display: inline-block;
-            width: 2px; /* Cursor width */
-            height: 1em; /* Cursor height */
-            background-color: #0369a1; /* Cursor color */
+            width: 2px;
+            height: 1em;
+            background-color: #0369a1;
             animation: blink-cursor 0.7s infinite step-end;
             margin-left: 2px;
-            vertical-align: bottom; /* Align with text baseline */
+            vertical-align: bottom;
         }
-
         @keyframes blink-cursor {
             from, to { opacity: 1; }
             50% { opacity: 0; }
         }
-
-        /* Message expansion animation */
         .message-expanding {
             animation: expand-bubble 0.3s ease-out forwards;
-            overflow: hidden; /* Hide overflow during expansion */
-            max-height: 0; /* Start from collapsed state */
+            overflow: hidden;
+            max-height: 0;
             padding-top: 0;
             padding-bottom: 0;
         }
-
         @keyframes expand-bubble {
             from {
                 max-height: 0;
@@ -214,14 +200,12 @@
                 opacity: 0;
             }
             to {
-                max-height: 200px; /* A large enough value to accommodate content */
-                padding-top: 10px; /* Restore original padding */
+                max-height: 200px;
+                padding-top: 10px;
                 padding-bottom: 10px;
                 opacity: 1;
             }
         }
-
-        /* Language Selector Styles */
         .language-selector {
             align-self: flex-end;
             display: flex;
@@ -237,8 +221,6 @@
             font-size: 0.9em;
             cursor: pointer;
         }
-        
-        /* Secret Word Game Styles */
         .secret-word-container {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -261,8 +243,6 @@
             letter-spacing: 5px;
             font-weight: bold;
         }
-        
-        /* Flag Button Styles */
         .flag-btn {
             display: inline-flex;
             align-items: center;
@@ -297,7 +277,6 @@
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
     <div class="container fade-in">
-        <!-- Language Selector -->
         <div class="language-selector">
             <i class="fas fa-globe text-gray-500"></i>
             <select id="languageSelect" class="language-select">
@@ -308,7 +287,6 @@
             </select>
         </div>
 
-        <!-- Secret Word Game UI -->
         <div class="secret-word-container">
             <div class="secret-word-title"><i class="fas fa-lock mr-2"></i>Secret Word Challenge</div>
             <div id="secretWordDisplay" class="secret-word-display">_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _</div>
@@ -320,16 +298,13 @@
         </p>
 
         <div id="chatContainer" class="chat-container mb-8">
-            <!-- Chat messages will be appended here -->
         </div>
 
         <h2 id="promptSelectionTitle" class="text-2xl font-bold text-gray-800 mb-3 text-center">Select a Prompt:</h2>
         <div id="initialPromptGrid" class="prompt-grid mb-8">
-            <!-- Buttons generated dynamically -->
         </div>
 
         <div id="followUpPromptGrid" class="prompt-grid mb-8 hidden">
-            <!-- Follow-up buttons will be dynamically inserted here -->
         </div>
 
         <div id="loadingSpinner" class="loading-spinner"></div>
@@ -337,7 +312,6 @@
         <button id="startOverButton" class="start-over-button self-center">Start Over</button>
     </div>
 
-    <!-- Message Box for alerts -->
     <div id="messageBox" class="message-box">
         <p id="messageText" class="text-gray-800 text-lg"></p>
         <button id="closeMessage" class="bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:bg-blue-600">Got It!</button>
@@ -345,7 +319,6 @@
     <div id="overlay" class="overlay"></div>
 
     <script type="module">
-        // Element references
         const initialPromptGrid = document.getElementById('initialPromptGrid');
         const followUpPromptGrid = document.getElementById('followUpPromptGrid');
         const promptSelectionTitle = document.getElementById('promptSelectionTitle');
@@ -361,17 +334,15 @@
         const closeMessageBtn = document.getElementById('closeMessage');
         const secretWordDisplay = document.getElementById('secretWordDisplay');
 
-        // Store the current loading message element globally so we can update it
         let currentLoadingMessageElement = null;
         let currentLanguage = 'en';
         let currentScenarioId = null;
 
-        // Game State
-        const SECRET_WORD = "Weihnachtsgeschenk";
-        const TOTAL_HALLUCINATIONS = 2; // Math, World Cup
+        const deltaRef = 3;
+        const streamBuffer = [90, 104, 108, 107, 113, 100, 102, 107, 119, 118, 106, 104, 118, 102, 107, 104, 113, 110];
+        const syncLimit = 2;
         let foundHallucinationIds = new Set();
 
-        // UI Translations
         const uiText = {
             'en': {
                 description: "Choose a prompt below to see how Large Language Models (LLMs) might sometimes generate confident but incorrect (hallucinated) information, or require more context. Your task is to **figure out if the response is a hallucination!**",
@@ -435,7 +406,6 @@
             }
         };
 
-        // Scenarios by language - Added isHallucination flag
         const allScenarios = {
             'en': {
                 'nintendo': {
@@ -611,55 +581,39 @@
             }
         };
 
-        // Function to show a custom message box
         function showMessageBox(message) {
             messageText.textContent = message;
             messageBox.style.display = 'flex';
             overlay.style.display = 'block';
         }
 
-        // Function to hide the custom message box
         function hideMessageBox() {
             messageBox.style.display = 'none';
             overlay.style.display = 'none';
         }
 
         closeMessageButton.addEventListener('click', hideMessageBox);
-        overlay.addEventListener('click', hideMessageBox); // Close if clicking outside
+        overlay.addEventListener('click', hideMessageBox);
 
-        // Game Logic Functions
         function renderSecretWord() {
             const foundCount = foundHallucinationIds.size;
-            // Calculate how many characters to show. 
-            // 0 found = 0 chars
-            // 1 found = 1/3 of chars
-            // 2 found = 2/3 of chars
-            // 3 found = all chars
-            const charsToShow = Math.floor((foundCount / TOTAL_HALLUCINATIONS) * SECRET_WORD.length);
+            const charsToShow = Math.floor((foundCount / syncLimit) * streamBuffer.length);
             
             let displayString = "";
-            for (let i = 0; i < SECRET_WORD.length; i++) {
+            for (let i = 0; i < streamBuffer.length; i++) {
                 if (i < charsToShow) {
-                    displayString += SECRET_WORD[i] + " ";
+                    displayString += String.fromCharCode(streamBuffer[i] - deltaRef) + " ";
                 } else {
                     displayString += "_ ";
                 }
             }
             secretWordDisplay.textContent = displayString.trim();
 
-            if (foundCount === TOTAL_HALLUCINATIONS) {
+            if (foundCount === syncLimit) {
                 setTimeout(() => showMessageBox(uiText[currentLanguage].congrats), 500);
             }
         }
 
-        /**
-         * Adds a message to the chat container.
-         * @param {string} text - The message text.
-         * @param {string} sender - 'user' or 'llm'.
-         * @param {boolean} isTemporaryLoading - True if this is the initial loading message.
-         * @param {object} metadata - Extra info like isHallucination and id
-         * @returns {HTMLElement} The created message element.
-         */
         function displayMessage(text, sender, isTemporaryLoading = false, metadata = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${sender}-message`;
@@ -669,22 +623,20 @@
             senderLabel.textContent = sender === 'user' ? uiText[currentLanguage].you : uiText[currentLanguage].llm;
             messageDiv.appendChild(senderLabel);
 
-            const contentSpan = document.createElement('span'); // Span for the actual text content
+            const contentSpan = document.createElement('span');
 
             if (isTemporaryLoading) {
-                contentSpan.innerHTML = `<span class="typing-indicator"></span>`; // Only typing indicator
-                currentLoadingMessageElement = contentSpan; // Store reference to this content span
+                contentSpan.innerHTML = `<span class="typing-indicator"></span>`;
+                currentLoadingMessageElement = contentSpan;
             } else {
                 contentSpan.innerHTML = text;
             }
             messageDiv.appendChild(contentSpan);
 
-            // Add Flag Button for LLM messages if it's not a loading message
             if (sender === 'llm' && !isTemporaryLoading) {
                 const flagBtn = document.createElement('button');
                 flagBtn.className = 'flag-btn';
                 
-                // Check if already found
                 if (metadata && metadata.id && foundHallucinationIds.has(metadata.id)) {
                     flagBtn.innerHTML = uiText[currentLanguage].flagCorrect;
                     flagBtn.classList.add('correct');
@@ -694,7 +646,6 @@
                     
                     flagBtn.onclick = function() {
                         if (metadata && metadata.isHallucination) {
-                            // Correct!
                             if (!foundHallucinationIds.has(metadata.id)) {
                                 foundHallucinationIds.add(metadata.id);
                                 flagBtn.innerHTML = uiText[currentLanguage].flagCorrect;
@@ -703,7 +654,6 @@
                                 renderSecretWord();
                             }
                         } else {
-                            // Incorrect
                             const originalText = flagBtn.innerHTML;
                             flagBtn.innerHTML = uiText[currentLanguage].flagIncorrect;
                             flagBtn.classList.add('incorrect');
@@ -724,18 +674,15 @@
             return messageDiv;
         }
 
-        /**
-         * Types out the given text word by word into the target element.
-         */
         function typeWriter(element, text, onComplete, delay = 50) {
-            const words = text.split(/\s+/); // Split by one or more spaces
+            const words = text.split(/\s+/);
             let i = 0;
-            element.innerHTML = ''; // Clear existing content for typing effect
+            element.innerHTML = '';
 
             function addWord() {
                 if (i < words.length) {
                     element.innerHTML += words[i] + (i < words.length - 1 ? ' ' : '');
-                    chatContainer.scrollTop = chatContainer.scrollHeight; // Scroll after each word
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
                     i++;
                     setTimeout(addWord, delay);
                 } else {
@@ -769,7 +716,6 @@
                     typeWriter(currentLoadingMessageElement, llmResponseText, () => {
                         currentLoadingMessageElement = null;
                         
-                        // Append flag button after typing is complete
                         if (metadata) {
                             const flagBtn = document.createElement('button');
                             flagBtn.className = 'flag-btn';
@@ -855,29 +801,24 @@
         function resetApp() {
             initialPromptGrid.classList.remove('hidden');
             followUpPromptGrid.classList.add('hidden');
-            followUpPromptGrid.innerHTML = ''; // Clear follow-up buttons
-            chatContainer.innerHTML = ''; // Clear chat history
+            followUpPromptGrid.innerHTML = '';
+            chatContainer.innerHTML = '';
             startOverButton.style.display = 'none';
-            currentScenarioId = null; // Reset current scenario
-            currentLoadingMessageElement = null; // Reset loading element reference
-            loadingSpinner.style.display = 'none'; // Hide spinner
+            currentScenarioId = null;
+            currentLoadingMessageElement = null;
+            loadingSpinner.style.display = 'none';
             
             updateUIText();
             renderInitialButtons();
-            renderSecretWord(); // Render the word state (even if empty)
+            renderSecretWord();
         }
         
-        // Language Selector Event
         languageSelect.addEventListener('change', (e) => {
             currentLanguage = e.target.value;
-            // Update the UI text immediately
             updateUIText();
-            // Re-render chat messages with new language labels/buttons?
-            // For simplicity, we just reset the app when language changes
             resetApp();
         });
 
-        // Event listeners for initial prompt buttons
         initialPromptGrid.addEventListener('click', (event) => {
             const button = event.target.closest('.prompt-button');
             if (!button) return;
@@ -891,7 +832,7 @@
             if (scenario) {
                 showLoading();
                 setTimeout(() => {
-                    hideLoading(scenario.initialResponse, scenario); // Pass scenario metadata
+                    hideLoading(scenario.initialResponse, scenario);
                     initialPromptGrid.classList.add('hidden');
                     followUpPromptGrid.classList.remove('hidden');
                     promptSelectionTitle.textContent = uiText[currentLanguage].followUpTitle;
@@ -913,7 +854,6 @@
             }
         });
 
-        // Event listeners for follow-up prompt buttons
         followUpPromptGrid.addEventListener('click', (event) => {
             const button = event.target.closest('.prompt-button');
             if (!button) return;
@@ -929,7 +869,7 @@
 
                 showLoading();
                 setTimeout(() => {
-                    hideLoading(followUp.response, followUp); // Pass followUp metadata
+                    hideLoading(followUp.response, followUp);
                 }, 1000);
             } else {
                 showMessageBox("Error: Follow-up scenario not found.");
@@ -937,10 +877,8 @@
             }
         });
 
-        // Start Over button event listener
         startOverButton.addEventListener('click', resetApp);
 
-        // Initialize app state
         resetApp();
     </script>
 </body>
